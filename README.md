@@ -34,7 +34,8 @@ envoy p2_production=712i,p3_production=707i,p1_consumption=18i,p1_net=-689i,p2_c
 ```
 
 ### Build local 
+```shell
 git clone git@github.com:botris/envoy-telegraf-plugin.git
 go build -o build/envoy cmd/main.go
 ./build/envoy -config plugin.conf 
-
+```
