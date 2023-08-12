@@ -1,6 +1,7 @@
 package envoy
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
@@ -13,7 +14,8 @@ import (
 const endpoint = "/production.json?details=1"
 
 type Config struct {
-	Url string `toml:"envoy_url"`
+	Url   string `toml:"envoy_url"`
+	Token string `toml:"bearer_token"`
 }
 
 type EnergyGrid struct {
@@ -51,7 +53,8 @@ func init() {
 
 const sampleConfig = `
   ## Config management url.
-  # envoy_url = "http://envoyResponse.local"
+  # envoy_url = "http://envoy.local"
+  # bearer_token = "eyJraWQiOi..."
 `
 
 func (e Config) SampleConfig() string {
@@ -76,8 +79,22 @@ func (e Config) Gather(accumulator telegraf.Accumulator) error {
 		"p3_net":         nil,
 	}
 	url := strings.TrimSuffix(e.Url, "/")
+	//Envoy latest firmware forces redirect to https with unsigned certificate.
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
 
-	httpResp, err := http.Get(url + endpoint)
+	req, err := http.NewRequest("GET", url+endpoint, nil)
+	if err != nil {
+		return err
+	}
+
+	token := "Bearer " + e.Token
+	req.Header.Set("Authorization", token)
+	req.Header.Add("Accept", "application/json")
+	httpResp, err := client.Do(req)
+
 	if err != nil {
 		//Envoy sometimes loses LAN connection, send nil values to reflect that.
 		accumulator.AddFields("envoy", fields, tags, now)
